@@ -367,8 +367,13 @@ describe "Chef::Resource.property" do
           expect(resource.x.object_id).to eq(value.object_id)
         end
         it "Multiple instances of x receive the exact same value" do
-          # Bleagh.  But it's what we do.
           expect(resource.x.object_id).to eq(resource_class.new('blah2').x.object_id)
+        end
+        it "The default value is frozen" do
+          expect(resource.x).to be_frozen
+        end
+        it "The default value cannot be written to" do
+          expect { resource.x[:a] = 1 }.to raise_error RuntimeError, /frozen/
         end
       end
 
