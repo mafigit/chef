@@ -97,6 +97,8 @@ class Chef
         else
           default = NOT_PASSED
         end
+        computed = validation.delete(:computed)
+        computed ||= validation.delete('computed')
         coerce    = validation.delete(:coerce)
         coerce  ||= validation.delete('coerce')
         name_property   = validation.delete(:name_property)
@@ -131,8 +133,12 @@ class Chef
           # Get the default value
           else
             _pv_required(opts, symbol, required, explicitly_allows_nil?(symbol, validation)) if required
-            _pv_default(opts, symbol, default) unless default == NOT_PASSED
-            _pv_name_property(opts, symbol, name_property)
+            if !opts.has_key?(symbol)
+              got_default = true
+              _pv_computed(opts, symbol, computed)
+              _pv_default(opts, symbol, default) unless default == NOT_PASSED
+              _pv_name_property(opts, symbol, name_property)
+            end
 
             if opts.has_key?(symbol)
               # Handle lazy defaults.
@@ -150,7 +156,7 @@ class Chef
               validate(opts, { symbol => validation })
 
               # Defaults are presently "stickily" set on the instance
-              self.instance_variable_set(iv_symbol, opts[symbol])
+              self.instance_variable_set(iv_symbol, opts[symbol]) unless got_default && computed
             end
           end
 
@@ -317,6 +323,33 @@ class Chef
         value = _pv_opts_lookup(opts, key)
         if value.nil?
           opts[key] = default_value
+        end
+      end
+
+      #
+      # A computed default value (non-sticky).
+      #
+      # When the property is not assigned, this will be used.
+      #
+      # @example
+      #   ```ruby
+      #   property :x
+      #   property :y, computed: proc { x+2 }
+      #   ```
+      #
+      # @example
+      #   ```ruby
+      #   property :x
+      #   property :y, computed: proc { |r| r.x+2 }
+      #   ```
+      #
+      def _pv_computed(opts, key, computed_value)
+        if !opts.has_key?(key) && computed_value
+          if computed_value.arity >= 1
+            opts[key] = computed_value.call(self)
+          else
+            opts[key] = instance_eval(&computed_value)
+          end
         end
       end
 
