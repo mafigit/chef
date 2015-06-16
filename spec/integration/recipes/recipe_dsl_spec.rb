@@ -752,6 +752,48 @@ describe "Recipe DSL methods" do
           }.to raise_error(Chef::Exceptions::NoSuchResourceType)
         end
       end
+
+      context "when Thingy9 provides :thingy9" do
+        before(:context) {
+          class RecipeDSLSpecNamespace::Thingy9 < BaseThingy
+          end
+        }
+
+        it "declaring a resource providing the same :thingy9 produces a warning" do
+          expect(Chef::Log).to receive(:warn).with("You are overriding thingy9 {} with [RecipeDSLSpecNamespace::Thingy9AlternateProvider]: used to be [RecipeDSLSpecNamespace::Thingy9]. Use override: true if this is what you intended.")
+          class RecipeDSLSpecNamespace::Thingy9AlternateProvider < BaseThingy
+            provides :thingy9
+          end
+        end
+      end
+
+      context "when Thingy10 provides :thingy10" do
+        before(:context) {
+          class RecipeDSLSpecNamespace::Thingy10 < BaseThingy
+          end
+        }
+
+        it "declaring a resource providing the same :thingy10 with override: true does not produce a warning" do
+          expect(Chef::Log).not_to receive(:warn)
+          class RecipeDSLSpecNamespace::Thingy10AlternateProvider < BaseThingy
+            provides :thingy10, override: true
+          end
+        end
+      end
+
+      context "when Thingy11 provides :thingy11" do
+        before(:context) {
+          class RecipeDSLSpecNamespace::Thingy11 < BaseThingy
+          end
+        }
+
+        it "declaring a resource providing the same :thingy11 with os: 'linux' does not produce a warning" do
+          expect(Chef::Log).not_to receive(:warn)
+          class RecipeDSLSpecNamespace::Thingy11AlternateProvider < BaseThingy
+            provides :thingy11, os: 'linux'
+          end
+        end
+      end
     end
   end
 end

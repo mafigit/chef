@@ -38,11 +38,15 @@ class Chef
     #
     # @return [NodeMap] Returns self for possible chaining
     #
-    def set(key, value, platform: nil, platform_version: nil, platform_family: nil, os: nil, on_platform: nil, on_platforms: nil, canonical: nil, &block)
+    def set(key, value, platform: nil, platform_version: nil, platform_family: nil, os: nil, on_platform: nil, on_platforms: nil, canonical: nil, override: nil, &block)
       Chef::Log.deprecation "The on_platform option to node_map has been deprecated" if on_platform
       Chef::Log.deprecation "The on_platforms option to node_map has been deprecated" if on_platforms
       platform ||= on_platform || on_platforms
-      filters = { platform: platform, platform_version: platform_version, platform_family: platform_family, os: os }
+      filters = {}
+      filters[:platform] = platform if platform
+      filters[:platform_version] = platform_version if platform_version
+      filters[:platform_family] = platform_family if platform_family
+      filters[:os] = os if os
       new_matcher = { filters: filters, block: block, value: value, canonical: canonical }
       @map[key] ||= []
       # Decide where to insert the matcher; the new value is preferred over
@@ -52,6 +56,9 @@ class Chef
       insert_at = nil
       @map[key].each_with_index do |matcher, index|
         if specificity(new_matcher) >= specificity(matcher)
+          if filters == matcher[:filters] && !!block == !!matcher[:block] && value != matcher[:value] && !override
+            Chef::Log.warn "You are overriding #{key} #{filters.inspect} with #{value.inspect}: used to be #{matcher[:value].inspect}. Use override: true if this is what you intended."
+          end
           insert_at = index
           break
         end

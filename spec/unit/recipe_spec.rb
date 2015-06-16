@@ -150,7 +150,7 @@ describe Chef::Recipe do
           end
 
           it "selects one if it is the last declared" do
-            expect(Chef::Log).not_to receive(:warn)
+            expect(Chef::Log).to receive(:warn).with("You are overriding football {:platform=>\"nbc_sports\"} with [TottenhamHotspur]: used to be [Sounders]. Use override: true if this is what you intended.")
 
             Sounders.provides :football, platform: "nbc_sports"
             TottenhamHotspur.provides :football, platform: "nbc_sports"
@@ -161,12 +161,12 @@ describe Chef::Recipe do
           end
 
           it "selects the other one if it is given priority" do
-            expect(Chef::Log).not_to receive(:warn)
+            expect(Chef::Log).to receive(:warn).with("You are overriding football2 {:platform=>\"nbc_sports\"} with [Sounders]: used to be [TottenhamHotspur]. Use override: true if this is what you intended.")
 
-            TottenhamHotspur.provides :football, platform: "nbc_sports"
-            Sounders.provides :football, platform: "nbc_sports"
+            TottenhamHotspur.provides :football2, platform: "nbc_sports"
+            Sounders.provides :football2, platform: "nbc_sports"
 
-            res1 = recipe.football "club world cup"
+            res1 = recipe.football2 "club world cup"
             expect(res1.name).to eql("club world cup")
             expect(res1).to be_a_kind_of(Sounders)
           end
