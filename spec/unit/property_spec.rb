@@ -335,9 +335,9 @@ describe "Chef::Resource.property" do
         resource.x lazy { 10 }
         expect(resource.property_is_set?(:x)).to be_truthy
       end
-      it "when x is retrieved, property_is_set?(:x) is true" do
+      it "when x is retrieved, property_is_set?(:x) is false" do
         resource.x
-        expect(resource.property_is_set?(:x)).to be_truthy
+        expect(resource.property_is_set?(:x)).to be_falsey
       end
     end
 
@@ -357,9 +357,9 @@ describe "Chef::Resource.property" do
         resource.x lazy { 10 }
         expect(resource.property_is_set?(:x)).to be_truthy
       end
-      it "when x is retrieved, property_is_set?(:x) is true" do
+      it "when x is retrieved, property_is_set?(:x) is false" do
         resource.x
-        expect(resource.property_is_set?(:x)).to be_truthy
+        expect(resource.property_is_set?(:x)).to be_falsey
       end
     end
 
@@ -379,9 +379,9 @@ describe "Chef::Resource.property" do
         resource.x lazy { 10 }
         expect(resource.property_is_set?(:x)).to be_truthy
       end
-      it "when x is retrieved, property_is_set?(:x) is true" do
+      it "when x is retrieved, property_is_set?(:x) is false" do
         resource.x
-        expect(resource.property_is_set?(:x)).to be_truthy
+        expect(resource.property_is_set?(:x)).to be_falsey
       end
     end
 
@@ -560,11 +560,20 @@ describe "Chef::Resource.property" do
         end
       end
 
-      with_property ":x, default: lazy { Namer.next_index }, is: proc { |v| Namer.next_index; true }" do
-        it "validation is only run the first time" do
-          expect(resource.x).to eq 1
+      with_property ":x, default: lazy { Namer.next_index.to_s }, is: proc { |v| Namer.next_index; true }" do
+        it "validation is run each time" do
+          expect(resource.x).to eq '1'
           expect(Namer.current_index).to eq 2
-          expect(resource.x).to eq 1
+          expect(resource.x).to eq '1'
+          expect(Namer.current_index).to eq 2
+        end
+      end
+
+      with_property ":x, default: lazy { Namer.next_index.to_s.freeze }, is: proc { |v| Namer.next_index; true }" do
+        it "validation is only run the first time" do
+          expect(resource.x).to eq '1'
+          expect(Namer.current_index).to eq 2
+          expect(resource.x).to eq '1'
           expect(Namer.current_index).to eq 2
         end
       end
@@ -581,10 +590,10 @@ describe "Chef::Resource.property" do
           expect(resource.x).to eq 'hi1'
           expect(Namer.current_index).to eq 1
         end
-        it "when x is retrieved, coercion is run, no more than once" do
+        it "when x is retrieved, coercion is run each time" do
           expect(resource.x).to eq '101'
-          expect(resource.x).to eq '101'
-          expect(Namer.current_index).to eq 1
+          expect(resource.x).to eq '102'
+          expect(Namer.current_index).to eq 2
         end
       end
 
@@ -638,130 +647,6 @@ describe "Chef::Resource.property" do
             expect(Namer.current_index).to eq 2
             expect(resource.x).to eq '101'
             expect(Namer.current_index).to eq 2
-          end
-        end
-      end
-    end
-  end
-
-  context "Chef::Resource::PropertyType#computed" do
-    context "hash computed default" do
-      with_property ':x, computed: proc { {} }' do
-        it "when x is not set, it returns {}" do
-          expect(resource.x).to eq({})
-        end
-        it "The value is different each time it is called" do
-          value = resource.x
-          expect(value).to eq({})
-          expect(resource.x.object_id).not_to eq(value.object_id)
-        end
-        it "Multiple instances of x receive different values" do
-          expect(resource.x.object_id).not_to eq(resource_class.new('blah2').x.object_id)
-        end
-      end
-    end
-
-    context "with a class with 'blah' as both class and instance methods" do
-      before do
-        resource_class.class_eval do
-          def self.blah
-            'class'
-          end
-          def blah
-            "#{name}#{next_index}"
-          end
-        end
-      end
-
-      with_property ':x, computed: proc { blah }' do
-        it "x is run in context of the instance" do
-          expect(resource.x).to eq "blah1"
-        end
-        it "x is run in the context of each instance it is run in" do
-          expect(resource.x).to eq "blah1"
-          expect(resource_class.new('another').x).to eq "another2"
-          expect(resource.x).to eq "blah3"
-        end
-      end
-
-      with_property ':x, computed: proc { |x| "#{blah}#{x.blah}" }' do
-        it "x is run in context of the class (where it was defined) and passed the instance" do
-          expect(resource.x).to eq "classblah1"
-        end
-        it "x is passed the value of each instance it is run in" do
-          expect(resource.x).to eq "classblah1"
-          expect(resource_class.new('another').x).to eq "classanother2"
-          expect(resource.x).to eq "classblah3"
-        end
-      end
-    end
-
-    context "validation of computed defaults" do
-      with_property ":x, String, computed: proc { Namer.next_index }" do
-        it "when the resource is created, no error is raised" do
-          resource
-        end
-        it "when x is set, no error is raised" do
-          expect(resource.x 'hi').to eq 'hi'
-          expect(resource.x).to eq 'hi'
-        end
-        it "when x is retrieved, a validation error is raised" do
-          expect { resource.x }.to raise_error Chef::Exceptions::ValidationFailed
-          expect(Namer.current_index).to eq 1
-        end
-      end
-
-      with_property ":x, computed: proc { Namer.next_index }, is: proc { |v| Namer.next_index; true }" do
-        it "validation is run each time" do
-          expect(resource.x).to eq 1
-          expect(Namer.current_index).to eq 2
-          expect(resource.x).to eq 3
-          expect(Namer.current_index).to eq 4
-        end
-      end
-    end
-
-    context "coercion of computed defaults" do
-      with_property ':x, coerce: proc { |v| "#{v}#{next_index}" }, computed: proc { 10 }' do
-        it "when the resource is created, the proc is not yet run" do
-          resource
-          expect(Namer.current_index).to eq 0
-        end
-        it "when x is set, coercion is run" do
-          expect(resource.x 'hi').to eq 'hi1'
-          expect(resource.x).to eq 'hi1'
-          expect(Namer.current_index).to eq 1
-        end
-      end
-
-      with_property ':x, proc { |v| Namer.next_index; true }, coerce: proc { |v| "#{v}#{next_index}" }, computed: proc { 10 }' do
-        it "coercion is run each time x is retrieved" do
-          expect(Namer.current_index).to eq 0
-          expect(resource.x).to eq '101'
-          expect(Namer.current_index).to eq 2
-          expect(resource.x).to eq '103'
-          expect(Namer.current_index).to eq 4
-        end
-      end
-
-      context "validation and coercion of computed defaults" do
-        with_property ':x, String, coerce: proc { |v| "#{v}#{next_index}" }, computed: proc { 10 }' do
-          it "when x is retrieved, it is coerced before validating and passes" do
-            expect(resource.x).to eq '101'
-          end
-        end
-        with_property ':x, Integer, coerce: proc { |v| "#{v}#{next_index}" }, computed: proc { 10 }' do
-          it "when x is retrieved, it is coerced before validating and fails" do
-            expect { resource.x }.to raise_error Chef::Exceptions::ValidationFailed
-          end
-        end
-        with_property ':x, proc { |v| Namer.next_index; true }, coerce: proc { |v| "#{v}#{next_index}" }, computed: proc { 10 }' do
-          it "coercion and validation is only run the first time x is retrieved" do
-            expect(Namer.current_index).to eq 0
-            expect(resource.x).to eq '101'
-            expect(Namer.current_index).to eq 2
-            expect(resource.x).to eq '103'
-            expect(Namer.current_index).to eq 4
           end
         end
       end
